@@ -40,6 +40,8 @@ enum class backend_type {
     opencl,
     /** [SYCL](https://www.khronos.org/sycl/) to target CPUs and GPUs from different vendors. Currently tested SYCL implementations are [DPC++](https://github.com/intel/llvm) and [hipSYCL](https://github.com/illuhad/hipSYCL). */
     sycl
+    /** [HPX](https://hpx.stellar-group.org/) to target CPUs only (currently no HPX gpu backend support). */
+    hpx,
 };
 
 /**
@@ -83,6 +85,7 @@ namespace hip { class csvm; }
 namespace opencl { class csvm; }
 namespace hipsycl { class csvm; }
 namespace dpcpp { class csvm; }
+namespace hpx { class csvm; }
 // clang-format on
 
 namespace detail {
@@ -146,6 +149,14 @@ struct csvm_to_backend_type<dpcpp::csvm> {
     static constexpr backend_type value = backend_type::sycl;
     /// The enum value representing the SYCL implementation for the (DPC++) SYCL backend.
     static constexpr sycl::implementation_type impl = sycl::implementation_type::dpcpp;
+};
+/**
+ * @brief Sets the `value` to `plssvm::backend_type::hpx` for the HPX C-SVM.
+ */
+template <>
+struct csvm_to_backend_type<hpx::csvm> {
+    /// The enum value representing the HPX backend.
+    static constexpr backend_type value = backend_type::hpx;
 };
 
 }  // namespace detail
