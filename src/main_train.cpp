@@ -16,16 +16,14 @@
                                                            // PLSSVM_DETAIL_TRACKING_PERFORMANCE_TRACKER_ADD_HARDWARE_SAMPLER_ENTRY, PLSSVM_DETAIL_TRACKING_PERFORMANCE_TRACKER_SET_REFERENCE_TIME
 #include "plssvm/detail/utility.hpp"                       // PLSSVM_IS_DEFINED
 
-#if defined(PLSSVM_HAS_HPX_BACKEND)
-#include <hpx/hpx_start.hpp> 
-#endif
-
 #if defined(PLSSVM_HARDWARE_SAMPLING_ENABLED)
     #include "plssvm/detail/tracking/cpu/hardware_sampler.hpp"      // plssvm::detail::tracking::cpu_hardware_sampler
     #include "plssvm/detail/tracking/hardware_sampler.hpp"          // plssvm::detail::tracking::hardware_sampler
     #include "plssvm/detail/tracking/hardware_sampler_factory.hpp"  // plssvm::detail::tracking::make_hardware_sampler
 #endif
-
+#if defined(PLSSVM_HAS_HPX_BACKEND)
+    #include <hpx/hpx_init.hpp>
+#endif
 #include <algorithm>    // std::for_each
 #include <chrono>       // std::chrono::{steady_clock, duration, milliseconds}, std::chrono_literals namespace
 #include <cstddef>      // std::size_t
@@ -41,7 +39,11 @@
 
 using namespace std::chrono_literals;
 
-int main(int argc, char *argv[]) {
+#if defined(PLSSVM_HAS_HPX_BACKEND)
+int hpx_main(int argc, char *argv[]){
+#else
+int main(int argc, char* argv[]){
+#endif
     try {
         const std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
         PLSSVM_DETAIL_TRACKING_PERFORMANCE_TRACKER_SET_REFERENCE_TIME(start_time);
@@ -54,11 +56,6 @@ int main(int argc, char *argv[]) {
 
         // parse SVM parameter from command line
         plssvm::detail::cmd::parser_train cmd_parser{ argc, argv };
-
-#if defined(PLSSVM_HAS_HPX_BACKEND)
-       // Initialize HPX, don't run hpx_main
-        hpx::start(nullptr, argc, argv); 
-#endif
 
         // send warning if the build type is release and assertions are enabled
         if constexpr (std::string_view{ PLSSVM_BUILD_TYPE } == "Release" && PLSSVM_IS_DEFINED(PLSSVM_ENABLE_ASSERTS)) {
@@ -137,11 +134,17 @@ int main(int argc, char *argv[]) {
         std::cerr << e.what() << std::endl;
         return EXIT_FAILURE;
     }
-#if defined(PLSSVM_HAS_HPX_BACKEND)
-    // TODO: hpx::finalize has to be called from the HPX runtime before hpx::stop
-    // hpx::post([]() { hpx::finalize(); });
-    return hpx::stop();
-#else
+#if !defined(PLSSVM_HAS_HPX_BACKEND)
     return EXIT_SUCCESS;
-#endif
 }
+#else
+    return hpx::finalize();
+}
+
+int main(int argc, char* argv[])
+{
+    // Initialize HPX, run hpx_main as the first HPX thread, and
+    // wait for hpx::finalize being called.
+    return hpx::init(argc, argv);
+}
+#endif
