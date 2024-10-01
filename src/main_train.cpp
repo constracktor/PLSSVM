@@ -22,9 +22,8 @@
     #include "plssvm/detail/tracking/hardware_sampler_factory.hpp"  // plssvm::detail::tracking::make_hardware_sampler
 #endif
 #if defined(PLSSVM_HAS_HPX_BACKEND)
-    #include <hpx/runtime_local/run_as_hpx_thread.hpp>
-    #include <hpx/hpx_start.hpp>
-    #include <hpx/execution.hpp>
+    #include <hpx/hpx_start.hpp>                                    // hpx::{start, stop, finalize}
+    #include <hpx/execution.hpp>                                    // hpx::post
 #endif
 #include <algorithm>    // std::for_each
 #include <chrono>       // std::chrono::{steady_clock, duration, milliseconds}, std::chrono_literals namespace
@@ -42,9 +41,10 @@
 using namespace std::chrono_literals;
 
 int main(int argc, char* argv[]){
-    // Initialize HPX, run hpx_main.
+#if defined(PLSSVM_HAS_HPX_BACKEND)
+    // Initialize HPX, but do not run hpx_main
     hpx::start(nullptr,argc, argv);
-
+#endif
     try {
         const std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
         PLSSVM_DETAIL_TRACKING_PERFORMANCE_TRACKER_SET_REFERENCE_TIME(start_time);
@@ -89,7 +89,6 @@ int main(int argc, char* argv[]){
             std::for_each(sampler.begin(), sampler.end(), std::mem_fn(&plssvm::detail::tracking::hardware_sampler::start_sampling));
 #endif
 
-            auto future = hpx::async([&](){
             // only specify plssvm::max_iter if it isn't its default value
             const plssvm::model<label_type> model =
                 cmd_parser.max_iter == std::size_t{ 0 }
@@ -104,8 +103,6 @@ int main(int argc, char* argv[]){
                                plssvm::solver = cmd_parser.solver);
             // save model to file
             model.save(cmd_parser.model_filename);
-         });
-        future.get();
 
 #if defined(PLSSVM_HARDWARE_SAMPLING_ENABLED)
             // stop sampling
@@ -138,7 +135,12 @@ int main(int argc, char* argv[]){
         std::cerr << e.what() << std::endl;
         return EXIT_FAILURE;
     }
+#if defined(PLSSVM_HAS_HPX_BACKEND)
     // Wait for hpx::finalize being called.
     hpx::post([&](){hpx::finalize();});
+    // Stop HPX runtime
     return hpx::stop();
+#else
+    return EXIT_SUCCESS;
+#endif
 }
