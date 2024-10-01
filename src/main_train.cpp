@@ -17,7 +17,8 @@
 #include "plssvm/detail/utility.hpp"                       // PLSSVM_IS_DEFINED
 
 #if defined(PLSSVM_HAS_HPX_BACKEND)
-#include <hpx/hpx_start.hpp> 
+    #include <hpx/hpx_start.hpp>
+    #include <hpx/execution.hpp>
 #endif
 
 #if defined(PLSSVM_HARDWARE_SAMPLING_ENABLED)
@@ -57,7 +58,7 @@ int main(int argc, char *argv[]) {
 
 #if defined(PLSSVM_HAS_HPX_BACKEND)
        // Initialize HPX, don't run hpx_main
-        hpx::start(nullptr, argc, argv); 
+       hpx::start(nullptr, argc, argv); 
 #endif
 
         // send warning if the build type is release and assertions are enabled
@@ -138,8 +139,8 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 #if defined(PLSSVM_HAS_HPX_BACKEND)
-    // TODO: hpx::finalize has to be called from the HPX runtime before hpx::stop
-    // hpx::post([]() { hpx::finalize(); });
+    hpx::post([]() {hpx::finalize();});
+    // Stop HPX runtime
     return hpx::stop();
 #else
     return EXIT_SUCCESS;
