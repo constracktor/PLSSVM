@@ -41,10 +41,6 @@
 using namespace std::chrono_literals;
 
 int main(int argc, char* argv[]){
-#if defined(PLSSVM_HAS_HPX_BACKEND)
-    // Initialize HPX, but do not run hpx_main
-    hpx::start(nullptr,argc, argv);
-#endif
     try {
         const std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
         PLSSVM_DETAIL_TRACKING_PERFORMANCE_TRACKER_SET_REFERENCE_TIME(start_time);
@@ -70,6 +66,14 @@ int main(int argc, char* argv[]){
                             "\ntask: training\n{}\n\n\n",
                             plssvm::detail::tracking::tracking_entry{ "parameter", "", cmd_parser });
 
+#if defined(PLSSVM_HAS_HPX_BACKEND)
+        const bool use_hpx_as_backend{ cmd_parser.backend == plssvm::backend_type::hpx || (cmd_parser.backend == plssvm::backend_type::automatic && plssvm::determine_default_backend() == plssvm::backend_type::hpx) };
+        if (use_hpx_as_backend){
+            // Initialize HPX runtime, but do not run hpx_main and do not pass commandline arguments
+            // Set HPX commandline arguments with the HPX_COMMANDLINE_OPTIONS="" environment variable
+            hpx::start(nullptr, 0, nullptr);
+        }
+#endif
         // create data set
         const auto data_set_visitor = [&](auto &&data) {
             using label_type = typename std::remove_reference_t<decltype(data)>::label_type;
@@ -128,6 +132,14 @@ int main(int argc, char* argv[]){
 
         PLSSVM_DETAIL_TRACKING_PERFORMANCE_TRACKER_SAVE(cmd_parser.performance_tracking_filename);
 
+#if defined(PLSSVM_HAS_HPX_BACKEND)
+        if (use_hpx_as_backend){
+            // Finalize all existing HPX tasks
+            hpx::post([]{hpx::finalize();});
+            // Stop HPX runtime
+            hpx::stop();
+        }
+#endif
     } catch (const plssvm::exception &e) {
         std::cerr << e.what_with_loc() << std::endl;
         return EXIT_FAILURE;
@@ -135,12 +147,5 @@ int main(int argc, char* argv[]){
         std::cerr << e.what() << std::endl;
         return EXIT_FAILURE;
     }
-#if defined(PLSSVM_HAS_HPX_BACKEND)
-    // Wait for hpx::finalize being called.
-    hpx::post([&](){hpx::finalize();});
-    // Stop HPX runtime
-    return hpx::stop();
-#else
     return EXIT_SUCCESS;
-#endif
 }
