@@ -42,8 +42,11 @@ using namespace std::chrono_literals;
 
 int main(int argc, char* argv[]){
 #if defined(PLSSVM_HAS_HPX_BACKEND)
-    // Initialize HPX, but do not run hpx_main
-    hpx::start(nullptr,argc, argv);
+    const bool use_hpx_as_backend{ cmd_parser.backend == plssvm::backend_type::hpx || (cmd_parser.backend == plssvm::backend_type::automatic && plssvm::determine_default_backend() == plssvm::backend_type::hpx) };
+    if (use_hpx_as_backend){
+       // Initialize HPX, but do not run hpx_main
+        hpx::start(nullptr,argc, argv);
+    }
 #endif
     try {
         const std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
@@ -136,10 +139,15 @@ int main(int argc, char* argv[]){
         return EXIT_FAILURE;
     }
 #if defined(PLSSVM_HAS_HPX_BACKEND)
-    // Wait for hpx::finalize being called.
-    hpx::post([&](){hpx::finalize();});
-    // Stop HPX runtime
-    return hpx::stop();
+    if (use_hpx_as_backend){
+        // Wait for hpx::finalize being called.
+        hpx::post([&](){hpx::finalize();});
+        // Stop HPX runtime
+        return hpx::stop();
+    }
+    else{
+        return EXIT_SUCCESS;
+    }
 #else
     return EXIT_SUCCESS;
 #endif
